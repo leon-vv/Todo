@@ -1,5 +1,6 @@
 import Event
 
+import Html
 import Http
 
 import Record
@@ -16,21 +17,38 @@ todoSchema = [("name", String), ("done", Bool)]
 todoTable : Table Main.todoSchema
 todoTable = MkTable "todo"
 
+Todo : Type
+Todo = Record todoSchema
+
 Todos : Type
-Todos = List (Record Main.todoSchema)
+Todos = List Todo
+
+showTodo : Todo -> String
+showTodo t = 
+  let name = (t .. "name")
+  in let checked = if t .. "done" then [("checked", "")] else []
+  in let html = tagc "div" [
+                  text name, 
+                  taga "input" ([("type", "checkbox")] ++ checked)]
+  in show html
+
+withinBody : String -> String
+withinBody b = "<!DOCTYPE html>" ++ show (
+  tagc "html" [
+    tagc "body" [text b]])
 
 showTodos : Todos -> String
-showTodos ts = unlines (map (\rec => rec .. "name") ts)
+showTodos ts = withinBody (unlines (map showTodo ts))
 
 data State =
-    StartingUp Pool (Event Todos)
-  | Listening Pool Todos (Event (Request, Response))
+    StartingUp DBConnection (Event Todos)
+  | Listening DBConnection Todos (Event (Request, Response))
 
 selectQuery : Select Main.todoSchema
 selectQuery = SelectQuery todoSchema todoTable (Const True) Nil
 
-pool : JS_IO Pool
-pool = makePool {user="leonvv"} {database="leonvv"} {password="leonvv"}
+pool : JS_IO DBConnection
+pool = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
 
 initialState : JS_IO State
 initialState = do
