@@ -1,0 +1,5 @@
+package todo
+
+pkgs = record_, effects, http, idrisscript, event, sql
+
+modules = Main
