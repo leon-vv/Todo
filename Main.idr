@@ -4,12 +4,13 @@ import Html
 import Http
 
 import Record
-import Record.JS
 
 import Sql
 import Sql.JS
 
 import Effects
+
+%include Node "event/runtime.js"
 
 todoSchema : Schema
 todoSchema = [("name", String), ("done", Bool)]
@@ -45,18 +46,21 @@ data State =
   | Listening DBConnection Todos (Event (Request, Response))
 
 selectQuery : Select Main.todoSchema
-selectQuery = SelectQuery todoSchema todoTable (Const True) Nil
+selectQuery = select ("name" `isExpr` (Col String "name") $
+                        "done" `isLastExpr` (Col Bool "done"))
+                      {from=todoTable}
 
-pool : JS_IO DBConnection
-pool = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
+conn : JS_IO DBConnection
+conn = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
 
 initialState : JS_IO State
 initialState = do
-  p <- pool
-  todosEv <- runSelectQuery selectQuery p
-  pure (StartingUp p todosEv)
+  c <- conn
+  todosEv <- runSelectQuery selectQuery c
+  pure (StartingUp c todosEv)
 
 nextState : State -> JS_IO State
+
 nextState st@(StartingUp p ev) = do
   todos <- ev
   case todos of
@@ -64,6 +68,7 @@ nextState st@(StartingUp p ev) = do
        Just lst => do
          server <- httpServer
          pure (Listening p lst server)
+
 nextState st@(Listening p todos server) = do
   maybeReq <- server
   (case maybeReq of
