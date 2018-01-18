@@ -1,32 +1,21 @@
+import Todo
+import TodoHtml
+
 import Event
-
-import Html
 import Http
-
 import Record
+import FerryJS
+import Html
 
 import Sql
 import Sql.JS
 
-import FerryJS
 
 import Effects
 
 %include Node "event/runtime.js"
 
-todoSchema : Schema
-todoSchema = [("name", String), ("done", Bool)]
-
-todoTable : Table Main.todoSchema
-todoTable = MkTable "todo"
-
-Todo : Type
-Todo = Record todoSchema
-
-Todos : Type
-Todos = List Todo
-
-selectQuery : Select Main.todoSchema
+selectQuery : Select Todo.todoSchema
 selectQuery = select ("name" `isExpr` (Col String "name") $
                         "done" `isLastExpr` (Col Bool "done"))
                       {from=todoTable}
@@ -40,33 +29,12 @@ insertQuery name done = InsertQuery
 conn : JS_IO DBConnection
 conn = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
 
-showTodo : Todo -> String
-showTodo t = 
-  let name = (t .. "name")
-  in let checked = if t .. "done" then [("checked", "")] else []
-  in let html = tagc "div" [
-                  text name, 
-                  taga {selfClose=True} "input" ([("type", "checkbox")] ++ checked)]
-  in show html
-
-messageHtml : String -> Html
-messageHtml msg = tagc "div" [text msg]
-
-withinBody : String -> String
-withinBody b = "<!DOCTYPE html>" ++ show (
-  tagc "html" [
-    tagc "body" [text b]])
-
-showTodos : String -> Todos -> String
-showTodos msg ts =
-  let body = (unlines (map showTodo ts))
-  in let messageHtml = show . messageHtml $ msg
-  in if msg == "" then withinBody body
-                  else withinBody (messageHtml ++ body)
-
 data RequestState = 
-    WaitingMessage (Event Todos) Response String
+    WaitingMessage (Event (List Todo)) Response String
   | WaitingInsert (Event Int) DBConnection Response String
+
+EndpointResult : Type
+EndpointResult = Maybe (RequestState)
 
 finishRequests : List RequestState -> JS_IO (List RequestState)
 
@@ -100,42 +68,54 @@ initialState = do
   pure (c, server, [])
 
 TodoEndpoint : Type
-TodoEndpoint = Endpoint (DBConnection, Response) RequestState
+TodoEndpoint = Endpoint (DBConnection, Response) EndpointResult
 
 viewEndpoint : TodoEndpoint
 viewEndpoint = MkEndpoint [] newState
-  where newState : (DBConnection, Response) -> Record [] -> JS_IO RequestState
+  where newState : (DBConnection, Response) -> Record [] -> JS_IO EndpointResult
         newState (c, res) _ = do
           todosEv <- runSelectQuery selectQuery c
-          pure (WaitingMessage todosEv res "")
+          pure . Just $ WaitingMessage todosEv res ""
 
 addSchema : Schema
 addSchema = [("name", String), ("done", Bool)]
 
 addEndpoint : TodoEndpoint
 addEndpoint = MkEndpoint ["add"] {sch=addSchema} newState
-  where newState : (DBConnection, Response) -> Record Main.addSchema -> JS_IO RequestState
+  where newState : (DBConnection, Response) -> Record Main.addSchema -> JS_IO EndpointResult
         newState (c, res) rec = 
           let query = insertQuery (rec .. "name") (rec .. "done")
           in do
             rowCountEv <- runInsertQuery query c
-            pure (WaitingInsert rowCountEv c res "Task added successfully")
+            pure . Just $ WaitingInsert rowCountEv c res "Task added successfully"
 
-notFound : Html
-notFound = tagc "div" [text "404 not found"]
-          
+editEndpoint : TodoEndpoint
+editEndpoint = MkEndpoint ["edit"] newState
+  where newState : (DBConnection, Response) -> Record [] -> JS_IO EndpointResult
+        newState (_, res) _ = do
+          write res . withinBody $ [todoForm]
+          pure Nothing
+
+
 nextState : State -> JS_IO State
 nextState st@(c, server, openReqs) = do
   maybeReq <- server
   (case maybeReq of
+      -- The event that has been fired is a HTTP request
       Just (req, res) =>
-        (case matchEndpoints [viewEndpoint, addEndpoint] (c, res) req of
+        (case matchEndpoints [viewEndpoint, addEndpoint, editEndpoint] (c, res) req of
              Just endpointIO => do
-               newReq <- endpointIO
-               pure (c, server, newReq::openReqs)
+               maybeState <- endpointIO
+               pure (case maybeState of
+                  Nothing => (c, server, openReqs)
+                  Just newReq  => (c, server, newReq::openReqs))
+
              Nothing => do
-               write res (withinBody (show notFound))
+               write res (withinBody [notFound])
                pure st)
+
+      -- The event that has been fired should be used
+      -- to finish one of the open requests
       Nothing => map
                   (\ns => (c, server, ns))
                   (finishRequests openReqs))
