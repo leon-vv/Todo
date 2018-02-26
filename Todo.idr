@@ -6,7 +6,7 @@ import Sql
 %access public export
 
 todoSchema : Schema
-todoSchema = [("name", String), ("done", Bool)]
+todoSchema = [("id", Int), ("name", String), ("done", Bool)]
 
 todoTable : Table Todo.todoSchema
 todoTable = MkTable "todo"

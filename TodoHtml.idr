@@ -10,13 +10,16 @@ notFound : Html
 notFound = tagc "div" [text "404 not found"]
 
 -- Try generating form based on schema
-todoForm : Html
-todoForm =
-  tagac "form"
+todoForm : Todo -> Html
+todoForm t =
+  let checked = if t .. "done" then [("checked", "")] else []
+  in tagac "form"
       [("method", "post"), ("action", "./")]
       [
-        taga {selfClose=True} "input" [("type", "text"), ("name", "name")],
-        taga {selfClose=True} "input" [("type", "submit")]]
+        input Hidden [("name", "id"), ("value", show $ t .. "id")],
+        input Checkbox (("name", "done")::checked)
+        input Text [("name", "name"), ("value", t .. "name")],
+        input Submit [("value", "Save")]]
 
 
 withinBody : List Html -> String

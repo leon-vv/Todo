@@ -1,24 +1,75 @@
-import Todo
-import TodoHtml
+module Main
+-- Todo
+-- import TodoHtml
 
 import Event
 import Http
 import Record
+
 import FerryJS
+import FerryJS.Util
+
 import Html
 
 import Sql
 import Sql.JS
 
-
 import Effects
 
-%include Node "event/runtime.js"
+-- State description
 
-selectQuery : Select Todo.todoSchema
-selectQuery = select ("name" `isExpr` (Col String "name") $
-                        "done" `isLastExpr` (Col Bool "done"))
+Server : Type
+Server = Event (Request, Response)
+
+State : Type
+State = (DBConnection, Server)
+
+-- Message, initial state and event
+
+data Msg = NewRequest (Request, Response)
+
+conn : JS_IO DBConnection
+conn = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
+
+initialState : JS_IO State
+initialState = (\c => (c, listen $ httpServer 3001)) <$> conn
+
+toEvent : State -> Event Msg
+toEvent (_, serv) = NewRequest <$> serv
+
+-- Next state function
+
+{-
+selectWhere : Select Todo.todoSchema
+selectWhere w = select ("name" `isExpr` (Col String "name") $
+                        "done" `isExpr` (Col Bool "done") $
+                        "id" `isExpr` (Col Int "id"))
+                      {where_=w}
                       {from=todoTable}
+
+-}
+
+nextState : State -> Msg -> JS_IO (Maybe (State))
+nextState st (NewRequest (req, res)) =
+  write res "This works" *> (pure (Just st))
+  
+
+-- Run program
+
+program : Program State Msg
+program = MkProgram initialState toEvent nextState
+
+main : JS_IO ()
+main = run program
+
+{-
+
+selectAll : Select Todo.todoSchema
+selectAll = selectWhere (Const True)
+
+selectById : Int -> Select Todo.todoSchema
+selectById id = selectWhere (Col Int "id" =# id)
+
 
 insertQuery : String -> Bool -> Insert
 insertQuery name done = InsertQuery
@@ -26,12 +77,10 @@ insertQuery name done = InsertQuery
                           ("name" `isExpr` (Const name) $
                             "done" `isLastExpr` (Const done))
 
-conn : JS_IO DBConnection
-conn = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
-
 data RequestState = 
     WaitingMessage (Event (List Todo)) Response String
   | WaitingInsert (Event Int) DBConnection Response String
+  | WaitingEdit (Event Todo) DBConnection Response
 
 EndpointResult : Type
 EndpointResult = Maybe (RequestState)
@@ -50,9 +99,20 @@ finishRequests ((wt@(WaitingInsert ev c res msg))::rest) = do
   rowCount <- ev
   (case rowCount of
       Just _ => do
-        todosEv <- runSelectQuery selectQuery c
+        todosEv <- runSelectQuery selectAll c
         pure ((WaitingMessage todosEv res msg)::rest)
       Nothing => map (wt ::) (finishRequests rest))
+
+finishRequests ((wt@(WaitingEdit ev c res))::rest) = do
+  todos <- ev
+  (case todos of
+    Just [] => do
+      todosEv <- runSelectQuery selectAll c
+      pure $ (WaitingMessage todosEv res "Could not find task")::rest
+    Just t::_ => do
+      write res . withinBody $ [todoForm t]
+      pure rest
+    Nothing => map (wt ::) (finishRequests rest))
 
 
 Server : Type
@@ -61,12 +121,6 @@ Server = Event (Request, Response)
 State : Type
 State = (DBConnection, Server, List RequestState)
 
-initialState : JS_IO State
-initialState = do
-  c <- conn
-  server <- httpServer
-  pure (c, server, [])
-
 TodoEndpoint : Type
 TodoEndpoint = Endpoint (DBConnection, Response) EndpointResult
 
@@ -74,7 +128,7 @@ viewEndpoint : TodoEndpoint
 viewEndpoint = MkEndpoint [] newState
   where newState : (DBConnection, Response) -> Record [] -> JS_IO EndpointResult
         newState (c, res) _ = do
-          todosEv <- runSelectQuery selectQuery c
+          todosEv <- runSelectQuery selectAll c
           pure . Just $ WaitingMessage todosEv res ""
 
 addSchema : Schema
@@ -89,12 +143,18 @@ addEndpoint = MkEndpoint ["add"] {sch=addSchema} newState
             rowCountEv <- runInsertQuery query c
             pure . Just $ WaitingInsert rowCountEv c res "Task added successfully"
 
+editSchema : Schema
+editSchema = [("id", Int)]
+
 editEndpoint : TodoEndpoint
-editEndpoint = MkEndpoint ["edit"] newState
-  where newState : (DBConnection, Response) -> Record [] -> JS_IO EndpointResult
-        newState (_, res) _ = do
-          write res . withinBody $ [todoForm]
-          pure Nothing
+editEndpoint = MkEndpoint ["edit"] {sch=editSchema} newState
+  where newState : (DBConnection, Response)
+                      -> Record []
+                      -> JS_IO EndpointResult
+        newState (c, res) r = do
+          todoEv <- runSelectQuery (selectById $ r .. "id") c
+          pure (WaitingEdit todoEv c res)
+
 
 
 nextState : State -> JS_IO State
@@ -122,3 +182,5 @@ nextState st@(c, server, openReqs) = do
 
 main : JS_IO ()
 main = run initialState nextState
+
+-}
