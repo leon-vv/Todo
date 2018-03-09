@@ -16,9 +16,8 @@ todoForm t =
   in tagac "form"
       [("method", "post"), ("action", "./")]
       [
-        input Hidden [("name", "id"), ("value", show $ t .. "id")],
-        input Checkbox (("name", "done")::checked)
-        input Text [("name", "name"), ("value", t .. "name")],
+        input Checkbox (("name", "done")::checked),
+        input TextType [("name", "name"), ("value", t .. "name")],
         input Submit [("value", "Save")]]
 
 

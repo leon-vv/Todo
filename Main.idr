@@ -1,6 +1,7 @@
 module Main
--- Todo
--- import TodoHtml
+
+import Todo
+import TodoHtml
 
 import Event
 import Http
@@ -16,56 +17,61 @@ import Sql.JS
 
 import Effects
 
--- State description
-
 Server : Type
 Server = Event (Request, Response)
 
+data Msg =
+    NewRequest (Request, Response)
+  | ExecuteIO (JS_IO ())
+
 State : Type
-State = (DBConnection, Server)
+State = (Callback Msg, DBConnection)
 
--- Message, initial state and event
+connection : JS_IO DBConnection
+connection = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
 
-data Msg = NewRequest (Request, Response)
-
-conn : JS_IO DBConnection
-conn = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
-
-initialState : JS_IO State
-initialState = (\c => (c, listen $ httpServer 3001)) <$> conn
-
-toEvent : State -> Event Msg
-toEvent (_, serv) = NewRequest <$> serv
+initialState : Callback Msg -> JS_IO State
+initialState cb = do
+  conn <- connection
+  (let serv = httpServer 3001
+   in let ev = map NewRequest $ listen serv
+   in listen ev cb)
+  pure (cb, conn)
 
 -- Next state function
 
-{-
-selectWhere : Select Todo.todoSchema
-selectWhere w = select ("name" `isExpr` (Col String "name") $
-                        "done" `isExpr` (Col Bool "done") $
-                        "id" `isExpr` (Col Int "id"))
-                      {where_=w}
-                      {from=todoTable}
+ignore : JS_IO a -> JS_IO ()
+ignore = map (const ())
 
--}
+respondWithTodos : Response -> List Todo -> Msg
+respondWithTodos res ts =
+  let str = showTodos "" ts
+  in ExecuteIO (do
+               log str
+               write res str)
 
 nextState : State -> Msg -> JS_IO (Maybe (State))
-nextState st (NewRequest (req, res)) =
-  write res "This works" *> (pure (Just st))
-  
+
+nextState st@(cb, conn) (NewRequest (req, res)) = do
+  setHeader res "Content-Type" "text/html; charset=utf-8"
+  queryResult <- runSelectQuery selectAll conn
+  (let ev = waitSelectResult queryResult
+   in let msgEv = map (respondWithTodos res) ev
+   in ignore $ listen msgEv cb)
+  pure (Just st)
+   
+nextState st (ExecuteIO io) = io *> pure (Just st)
 
 -- Run program
 
 program : Program State Msg
-program = MkProgram initialState toEvent nextState
+program = MkProgram initialState nextState
 
 main : JS_IO ()
 main = run program
 
-{-
 
-selectAll : Select Todo.todoSchema
-selectAll = selectWhere (Const True)
+{- 
 
 selectById : Int -> Select Todo.todoSchema
 selectById id = selectWhere (Col Int "id" =# id)
