@@ -46,9 +46,7 @@ ignore = map (const ())
 respondWithTodos : Response -> List Todo -> Msg
 respondWithTodos res ts =
   let str = showTodos "" ts
-  in ExecuteIO (do
-               log str
-               write res str)
+  in ExecuteIO (write res str)
 
 nextState : State -> Msg -> JS_IO (Maybe (State))
 

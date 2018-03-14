@@ -40,8 +40,8 @@ messageToHtml msg = tagc "div" [text msg]
 showTodos : String -> List Todo -> String
 showTodos msg ts =
   let body = map todoToHtml ts
-  in show $ if msg == "" then withinBody body
-                         else withinBody (messageToHtml msg::body)
+  in if msg == "" then withinBody body
+                  else withinBody (messageToHtml msg::body)
 
 
 
