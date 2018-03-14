@@ -27,4 +27,11 @@ allColumns = ("name" `isExpr` (Col String "name") $
 selectAll : Select Todo.todoSchema
 selectAll = select allColumns {from=todoTable}
 
+selectWhereName : String -> Select Todo.todoSchema
+selectWhereName name =
+  select
+    allColumns
+      {from=todoTable}
+      {where_= Col String "name" =# Const name}
+
 

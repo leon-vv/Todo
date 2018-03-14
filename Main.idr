@@ -16,6 +16,10 @@ import Sql
 import Sql.JS
 
 import Effects
+import Debug.Error
+
+-- To use the error function
+%language ElabReflection
 
 Server : Type
 Server = Event (Request, Response)
@@ -48,16 +52,76 @@ respondWithTodos res ts =
   let str = showTodos "" ts
   in ExecuteIO (write res str)
 
+Route : Type
+Route = State -> (Request, Response) -> JS_IO State
+
+withQueryResult : Select sch ->
+  DBConnection ->
+  (List (Record sch) -> msg) ->
+  Callback msg ->
+  JS_IO ()
+withQueryResult query conn f cb = do
+  queryResult <- runSelectQuery query conn
+  (let ev = waitSelectResult queryResult
+   in ignore $ listen (map f ev) cb)
+  
+
+returnTodos : Route
+returnTodos st@(cb, conn) (req, res) = do
+  withQueryResult selectAll conn (respondWithTodos res) cb
+  pure st
+
+notFound : Route
+notFound st (req, res) = do
+  write res "Not found"
+  pure st
+
+respondWithForm : Response -> List Todo -> Msg
+respondWithForm res [t] = 
+  ExecuteIO $
+    write res (withinBody [todoForm t])
+respondWithForm res [] =
+  ExecuteIO $ write res "Could not find Todo with given name"
+respondWithForm res _ = 
+  error "Todo error: should not find multiple values for private key 'name'"
+
+displayForm : String -> Route
+displayForm name st@(cb, conn) (req, res) = do
+  withQueryResult (selectWhereName name) conn (respondWithForm res) cb
+  pure st
+
+editTodo : Route
+editTodo st@(cb, conn) (req, res) =
+  let url = getUrl req
+  in let search = getSearchAs {sch=[("name", String)]} url
+  in case search of
+    Nothing => notFound st (req, res)
+    Just rec => displayForm (rec .. "name") st (req, res)
+
+Router : Type
+Router = Url -> Maybe Route
+
+pathRouter : String -> Route -> Router
+pathRouter s route url = if getPath url == [s] then Just route
+                                               else Nothing
+
+tryAll : List Router -> Router
+tryAll [] _ = Nothing
+tryAll (hd::tail) url = (hd url) <|> tryAll tail url
+
+router : Router
+router = tryAll [
+  pathRouter "show" returnTodos,
+  pathRouter "edit" editTodo]
+
 nextState : State -> Msg -> JS_IO (Maybe (State))
 
-nextState st@(cb, conn) (NewRequest (req, res)) = do
-  setHeader res "Content-Type" "text/html; charset=utf-8"
-  queryResult <- runSelectQuery selectAll conn
-  (let ev = waitSelectResult queryResult
-   in let msgEv = map (respondWithTodos res) ev
-   in ignore $ listen msgEv cb)
-  pure (Just st)
-   
+nextState st (NewRequest (req, res)) =
+  Just <$> 
+    case tryAll [pathRouter "show" returnTodos, pathRouter "edit" editTodo] $ getUrl req of
+        Just route => route st (req, res)
+        Nothing => notFound st (req, res)
+  
 nextState st (ExecuteIO io) = io *> pure (Just st)
 
 -- Run program
