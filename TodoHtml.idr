@@ -14,8 +14,9 @@ todoForm : Todo -> Html
 todoForm t =
   let checked = if t .. "done" then [("checked", "")] else []
   in tagac "form"
-      [("method", "post"), ("action", "./")]
+      [("method", "get"), ("action", "./save")]
       [
+        input Hidden [("name", "id"), ("value", show $ t .. "id")],
         input Checkbox (("name", "done")::checked),
         input TextType [("name", "name"), ("value", t .. "name")],
         input Submit [("value", "Save")]]

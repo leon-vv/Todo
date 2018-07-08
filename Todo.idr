@@ -10,7 +10,7 @@ import Effects
 -- Todo definitions
 
 todoSchema : Schema
-todoSchema = [("name", String), ("done", Bool)]
+todoSchema = [("id", Int), ("name", String), ("done", Bool)]
 
 todoTable : Table Todo.todoSchema
 todoTable = MkTable "todo"
@@ -21,17 +21,31 @@ Todo = Record todoSchema
 -- Database related
 
 allColumns : NamedExprs Todo.todoSchema Todo.todoSchema
-allColumns = ("name" `isExpr` (Col String "name") $
-                "done" `isLastExpr` (Col Bool "done"))
+allColumns = 
+      ("id" `isExpr` (Col Int "id")) $
+      ("name" `isExpr` (Col String "name")) $
+                ("done" `isLastExpr` (Col Bool "done"))
 
 selectAll : Select Todo.todoSchema
 selectAll = select allColumns {from=todoTable}
 
-selectWhereName : String -> Select Todo.todoSchema
-selectWhereName name =
+selectWhereId : Int -> Select Todo.todoSchema
+selectWhereId id =
   select
     allColumns
       {from=todoTable}
-      {where_= Col String "name" =# Const name}
+      {where_= Col Int "id" =# Const id}
+
+updateTodo : Todo -> Update
+updateTodo todo = 
+  update todoTable
+    {values="name" `isExpr` (Const $ todo .. "name") $
+             "done" `isLastExpr` (Const $ todo .. "done")}
+    {where_ = Col Int "id" =# Const (todo .. "id")}
+
+
+
+
+
 
 
