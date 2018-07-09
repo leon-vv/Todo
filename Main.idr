@@ -136,20 +136,20 @@ deleteTodo st@(cb, conn) (req, res) =
 Router : Type
 Router = Url -> Maybe Route
 
-pathRouter : String -> Route -> Router
-pathRouter s route url = if getPath url == [s] then Just route
-                                               else Nothing
+pathRouter : List String -> Route -> Router
+pathRouter s route url = if getPath url == s then Just route
+                                             else Nothing
 tryAll : List Router -> Router
 tryAll [] _ = Nothing
 tryAll (hd::tail) url = (hd url) <|> tryAll tail url
 
 router : Router
 router = tryAll [
-  pathRouter "show" returnTodos,
-  pathRouter "edit" editTodo,
-  pathRouter "save" saveTodo,
-  pathRouter "new" newTodo,
-  pathRouter "delete" deleteTodo]
+  pathRouter [] returnTodos,
+  pathRouter ["edit"] editTodo,
+  pathRouter ["save"] saveTodo,
+  pathRouter ["new"] newTodo,
+  pathRouter ["delete"] deleteTodo]
 
 computeState : ProgramMsg State Msg -> JS_IO (Maybe (State))
 
