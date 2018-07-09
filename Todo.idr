@@ -27,12 +27,16 @@ allColumns =
                 ("done" `isLastExpr` (Col Bool "done"))
 
 selectAll : Select Todo.todoSchema
-selectAll = select allColumns {from=todoTable}
+selectAll = select allColumns
+      {a=Sql.Nullable Sql.Int}
+      {from=todoTable}
+      {orderBy = Just (Col (Maybe Int) "id")}
 
 selectWhereId : Int -> Select Todo.todoSchema
 selectWhereId id =
   select
     allColumns
+      {a=Sql.Int} -- Ugly to pass in unused type. Improvement neccessary
       {from=todoTable}
       {where_= Col (Maybe Int) "id" =# Const (Just id)}
 
