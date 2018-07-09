@@ -9,6 +9,14 @@ import Record
 notFound : Html
 notFound = tagc "div" [text "404 not found"]
 
+emptyForm : Html
+emptyForm =
+  tagac "form"
+      [("method", "get"), ("action", "./save")]
+      [ input Checkbox [("name", "done")],
+        input TextType [("name", "name")],
+        input Submit [("value", "Save")]]
+
 -- Try generating form based on schema
 todoForm : Todo -> Html
 todoForm t =

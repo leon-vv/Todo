@@ -86,23 +86,39 @@ editTodo st@(cb, conn) (req, res) =
               Just id => displayForm id st (req, res)
               Nothing => respondMessage "Error converting id to Int" st (req, res)
 
-requestToTodo : Request -> Maybe Todo
-requestToTodo req = let url = getUrl req
-  in let maybeRec = getSearchAs {sch=[("id", String), ("name", String), ("done", Maybe String)]} url
-  in let maybeRec2 = maybeRec >>= tryUpdate {t=String} "id" (parseInteger {a=Int})
-  in update {t=Maybe String} "done" isJust <$> maybeRec2
+newTodo : Route
+newTodo st@(cb, conn) (req, res) = do
+  write res (withinBody [emptyForm])
+  pure st
 
+upsertTodo : Todo -> DBConnection -> JS_IO (Event Single Int)
+upsertTodo t conn =
+  case t .. "id" of
+    Nothing => waitRowCountResult <$> runInsertQuery (insertTodo t) conn
+    Just id => waitRowCountResult <$> runUpdateQuery (updateTodo t) conn
+
+convertId : Maybe String -> Maybe Int
+convertId = join . map (parseInteger {a=Int})
+
+stringTodoSchema : Schema
+stringTodoSchema = [("id", Maybe String), ("name", String), ("done", Maybe String)]
+
+requestToStringTodo : Request -> Maybe (Record Main.stringTodoSchema)
+requestToStringTodo req = getSearchAs {sch=stringTodoSchema} (getUrl req)
+ 
+requestToTodo : Request -> Maybe Todo
+requestToTodo req =
+  (\rec => Record.update {se=S (S Z)} "done" isJust (Record.update {se=Z} "id" convertId rec))
+    <$> requestToStringTodo req
 
 saveTodo : Route
 saveTodo st@(cb, conn) (req, res) =
   case requestToTodo req of
     Nothing => notFound st (req, res)
     Just todo => do
-      result <- runUpdateQuery (updateTodo todo) conn
-      (let ev1 = waitRowCountResult result
-      in let ev2 = map (const $ returnTodos st (req, res)) ev1
-      in execute ev2 *> pure st)
-
+      ev <- upsertTodo todo conn
+      execute $ (\_ => returnTodos st (req, res)) <$> ev
+      pure st
 
 Router : Type
 Router = Url -> Maybe Route
@@ -118,7 +134,8 @@ router : Router
 router = tryAll [
   pathRouter "show" returnTodos,
   pathRouter "edit" editTodo,
-  pathRouter "save" saveTodo]
+  pathRouter "save" saveTodo,
+  pathRouter "new" newTodo]
 
 computeState : ProgramMsg State Msg -> JS_IO (Maybe (State))
 
