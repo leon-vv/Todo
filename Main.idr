@@ -117,8 +117,21 @@ saveTodo st@(cb, conn) (req, res) =
     Nothing => notFound st (req, res)
     Just todo => do
       ev <- upsertTodo todo conn
-      execute $ (\_ => returnTodos st (req, res)) <$> ev
+      doAfter ev (returnTodos st (req, res))
       pure st
+
+deleteTodo : Route
+deleteTodo st@(cb, conn) (req, res) = 
+  let maybeId = do
+            rec <- getSearchAs {sch=[("id", Maybe String)]} (getUrl req)
+            id <- rec .. "id"
+            parseInteger {a=Int} id
+  in case maybeId of
+          Just id => do
+            ev <- runDeleteQuery (removeTodoWithId id) conn
+            doAfter (waitRowCountResult ev) (returnTodos st (req, res))
+            pure st
+          Nothing => notFound st (req, res)
 
 Router : Type
 Router = Url -> Maybe Route
@@ -135,7 +148,8 @@ router = tryAll [
   pathRouter "show" returnTodos,
   pathRouter "edit" editTodo,
   pathRouter "save" saveTodo,
-  pathRouter "new" newTodo]
+  pathRouter "new" newTodo,
+  pathRouter "delete" deleteTodo]
 
 computeState : ProgramMsg State Msg -> JS_IO (Maybe (State))
 

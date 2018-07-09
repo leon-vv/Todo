@@ -50,7 +50,11 @@ insertTodo t =
       $ ("done" `isLastExpr` (Const $ (t .. "done"))))
  
 
-
+removeTodoWithId : Int -> Delete
+removeTodoWithId id =
+  DeleteQuery
+    todoTable
+    (Col (Maybe Int) "id" =# Const (Just id))
 
 
 
