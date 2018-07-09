@@ -17,6 +17,11 @@ emptyForm =
         input TextType [("name", "name")],
         input Submit [("value", "Save")]]
 
+idToString : Todo -> String
+idToString t = case (t .. "id") of
+                    Nothing => ""
+                    Just id => show id
+
 -- Try generating form based on schema
 todoForm : Todo -> Html
 todoForm t =
@@ -24,7 +29,7 @@ todoForm t =
   in tagac "form"
       [("method", "get"), ("action", "./save")]
       [
-        input Hidden [("name", "id"), ("value", show $ t .. "id")],
+        input Hidden [("name", "id"), ("value", idToString t)],
         input Checkbox (("name", "done")::checked),
         input TextType [("name", "name"), ("value", t .. "name")],
         input Submit [("value", "Save")]]
@@ -40,6 +45,8 @@ todoToHtml t =
   let name = (t .. "name")
   in let checked = if t .. "done" then [("checked", "")] else []
   in tagc "div" [
+        tagac "a" [("href", "/delete?id=" ++ idToString t)] [text "Delete"],
+        tagac "a" [("href", "/edit?id=" ++ idToString t)] [text "Edit"],
         text name, 
         taga {selfClose=True} "input" ([("type", "checkbox")] ++ checked)]
 
@@ -49,8 +56,9 @@ messageToHtml msg = tagc "div" [text msg]
 showTodos : String -> List Todo -> String
 showTodos msg ts =
   let body = map todoToHtml ts
-  in if msg == "" then withinBody body
-                  else withinBody (messageToHtml msg::body)
+  in let newTodo = tagc "div" [tagac "a" [("href", "/new")] [text "Add Todo"]]
+  in if msg == "" then withinBody (newTodo::body)
+                  else withinBody (messageToHtml msg::newTodo::body)
 
 
 
