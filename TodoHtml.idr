@@ -10,14 +10,6 @@ import File
 notFound : Html
 notFound = tagc "div" [text "404 not found"]
 
-emptyForm : Html
-emptyForm =
-  tagac "form"
-      [("method", "get"), ("action", "./save")]
-      [ input Checkbox [("name", "done")],
-        input TextType [("name", "name")],
-        input Submit [("value", "Save")]]
-
 idToString : Todo -> String
 idToString t = case (t .. "id") of
                     Nothing => ""
@@ -28,12 +20,16 @@ todoForm : Todo -> Html
 todoForm t =
   let checked = if t .. "done" then [("checked", "")] else []
   in tagac "form"
-      [("method", "get"), ("action", "./save")]
+      [("id", "edit"), ("method", "get"), ("action", "./save")]
       [
         input Hidden [("name", "id"), ("value", idToString t)],
-        input Checkbox (("name", "done")::checked),
-        input TextType [("name", "name"), ("value", t .. "name")],
-        input Submit [("value", "Save")]]
+        tagc "div" [
+          input TextType [("name", "name"), ("value", t .. "name"), ("placeholder", "description")]],
+        tagc "label" [text "Already done:", input Checkbox (("name", "done")::checked)],
+        tagc "div" [input Submit [("value", "Save")]]]
+
+emptyForm : Html
+emptyForm = todoForm ({ "id" ::= Nothing & "name" ::= "" & "done" ::= False })
 
 divId : String -> List Html -> Html 
 divId id children = tagac "div" [("id", id)] children
@@ -57,11 +53,13 @@ todoToHtml t =
   let name = (t .. "name")
   in let checked = if t .. "done" then [("checked", "")] else []
   in tagac "div" [("class", "todo")]
-    [ tagac "form" [("action", ("/delete?id=" ++ idToString t))]
-        [tagac "button" [("type", "submit")] [text "Delete"]],
+    [ tagc "span" [text name],
+      tagc "div" [taga {selfClose=True} "input" ([("disabled", ""), ("type", "checkbox")] ++ checked)],
       link ("/edit?id=" ++ idToString t) "Edit",
-      tagc "span" [text name],
-      tagc "div" [taga {selfClose=True} "input" ([("type", "checkbox")] ++ checked)]]
+      tagac "form" [("action", ("/delete?id=" ++ idToString t)), ("method", "get")]
+        [tagac "button" [("type", "submit")] [text "Delete"],
+         taga {selfClose=True} "input"
+          [("type", "hidden"), ("value", idToString t), ("name", "id")]]]
 
 messageToHtml : String -> Html
 messageToHtml msg = tagc "div" [text msg]

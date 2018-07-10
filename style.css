@@ -6,15 +6,13 @@
 #wrapper #header {
   font-family:sans-serif;
   font-size:18px;
-  text-align:right;
-  padding-top:10px;
+  margin-top:40px;
   padding-bottom:25px;
 }
 #header > span {
   font-weight:bold;
   display:inline-block;
   width:150px;
-  text-align:left;
 }
 #header #name {width:260px;}
 
@@ -31,18 +29,30 @@
   display:inline-block;
   text-align:left;
 }
-.todo > form {
-  margin-right:40px;
+.todo > span {
+  width:260px;
+}
+.todo > div {
+  width:130px;
 }
 .todo > a {
   color:blue;
   width:60px;
-}
-.todo > span {
-  margin-left:40px;
-  width:260px;
-}
-.todo > div {
-  width:150px;
+  margin-right:50px;
 }
 
+form#edit {
+  display:inline-block;
+}
+#edit input[type="text"] {
+  width:250px;
+}
+#edit div {
+  margin-bottom:25px;
+}
+#edit input[type="checkbox"] {
+float:right;
+}
+#edit input[type="submit"] {
+  margin-top:30px;
+}
