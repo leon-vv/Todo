@@ -1,5 +1,5 @@
 package todo
 
-pkgs = record_, effects, http, event, sql, html, ferryjs
+pkgs = record_, effects, http, event, sql, html, ferryjs, file
 
 modules = Main

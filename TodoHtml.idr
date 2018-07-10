@@ -3,6 +3,7 @@ module TodoHtml
 import Todo
 import Html
 import Record
+import File
 
 %access public export
 
@@ -34,31 +35,43 @@ todoForm t =
         input TextType [("name", "name"), ("value", t .. "name")],
         input Submit [("value", "Save")]]
 
+divId : String -> List Html -> Html 
+divId id children = tagac "div" [("id", id)] children
 
-withinBody : List Html -> String
-withinBody b = "<!DOCTYPE html>" ++ show (
-  tagc "html" [
-    tagc "body" b])
+spanId : String -> List Html -> Html 
+spanId id children = tagac "span" [("id", id)] children
+
+link : String -> String -> Html
+link href content = tagac "a" [("href", href)] [text content]
+
+withinContent : List Html -> JS_IO String
+withinContent b = 
+  (\style => "<!DOCTYPE html>" ++ show (
+                tagc "html" [
+                    tagc "head" [tagac "style" [("type", "text/CSS")] [text style]],
+                    tagc "body" [divId "wrapper" [divId "content" b]]]))
+    <$> readFileSync "style.css"
 
 todoToHtml : Todo -> Html
 todoToHtml t =
   let name = (t .. "name")
   in let checked = if t .. "done" then [("checked", "")] else []
-  in tagc "div" [
-        tagac "a" [("href", "/delete?id=" ++ idToString t)] [text "Delete"],
-        tagac "a" [("href", "/edit?id=" ++ idToString t)] [text "Edit"],
-        text name, 
-        taga {selfClose=True} "input" ([("type", "checkbox")] ++ checked)]
+  in tagac "div" [("class", "todo")]
+    [ tagac "form" [("action", ("/delete?id=" ++ idToString t))]
+        [tagac "button" [("type", "submit")] [text "Delete"]],
+      link ("/edit?id=" ++ idToString t) "Edit",
+      tagc "span" [text name],
+      tagc "div" [taga {selfClose=True} "input" ([("type", "checkbox")] ++ checked)]]
 
 messageToHtml : String -> Html
 messageToHtml msg = tagc "div" [text msg]
 
-showTodos : String -> List Todo -> String
-showTodos msg ts =
-  let body = map todoToHtml ts
-  in let newTodo = tagc "div" [tagac "a" [("href", "/new")] [text "Add Todo"]]
-  in if msg == "" then withinBody (newTodo::body)
-                  else withinBody (messageToHtml msg::newTodo::body)
+showTodos : List Todo -> JS_IO String
+showTodos ts =
+  let add = divId "add" [tagac "a" [("href", "/new")] [text "Add Todo"]]
+  in let header = divId "header" [spanId "name" [text "Description"], spanId "done" [text "Done?"]]
+  in let todos = divId "todos" (header::(map todoToHtml ts))
+  in withinContent [add, todos]
 
 
 

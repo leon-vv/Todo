@@ -41,10 +41,9 @@ ignore : JS_IO a -> JS_IO ()
 ignore = map (const ())
 
 respondWithTodos : Response -> List Todo -> JS_IO ()
-respondWithTodos res ts =
-  let str = showTodos "" ts
-  in do
-    write res str
+respondWithTodos res ts = do
+  str <- showTodos ts
+  write res str
 
 Route : Type
 Route = State -> (Request, Response) -> JS_IO State
@@ -63,7 +62,9 @@ notFound : Route
 notFound = respondMessage "Not found"
 
 respondWithForm : Response -> List Todo -> JS_IO ()
-respondWithForm res [t] = write res (withinBody [todoForm t])
+respondWithForm res [t] = do
+  page <- withinContent [todoForm t]
+  write res page
 respondWithForm res [] = write res "Could not find Todo with given id"
 respondWithForm res _ = 
   error "Todo error: should not find multiple values for private key 'id'"
@@ -88,7 +89,8 @@ editTodo st@(cb, conn) (req, res) =
 
 newTodo : Route
 newTodo st@(cb, conn) (req, res) = do
-  write res (withinBody [emptyForm])
+  page <- withinContent [emptyForm]
+  write res page
   pure st
 
 upsertTodo : Todo -> DBConnection -> JS_IO (Event Single Int)
