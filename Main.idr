@@ -82,7 +82,7 @@ displayForm id st@(cb, conn) (req, res) = do
 editTodo : Route
 editTodo st@(cb, conn) (req, res) =
   let url = getUrl req
-  in let search = getSearchAs {sch=[("id", String)]} url
+  in let search = getQueryAs {sch=[("id", String)]} url
   in case search of
     Nothing => notFound st (req, res)
     Just rec =>
@@ -110,7 +110,7 @@ stringTodoSchema : Schema
 stringTodoSchema = [("id", Maybe String), ("name", String), ("done", Maybe String)]
 
 requestToStringTodo : Request -> Maybe (Record Main.stringTodoSchema)
-requestToStringTodo req = getSearchAs {sch=stringTodoSchema} (getUrl req)
+requestToStringTodo req = getQueryAs {sch=stringTodoSchema} (getUrl req)
  
 requestToTodo : Request -> Maybe Todo
 requestToTodo req =
@@ -129,7 +129,7 @@ saveTodo st@(cb, conn) (req, res) =
 deleteTodo : Route
 deleteTodo st@(cb, conn) (req, res) = 
   let maybeId = do
-            rec <- getSearchAs {sch=[("id", Maybe String)]} (getUrl req)
+            rec <- getQueryAs {sch=[("id", Maybe String)]} (getUrl req)
             id <- rec .. "id"
             parseInteger {a=Int} id
   in case maybeId of
