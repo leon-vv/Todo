@@ -19,8 +19,7 @@ Make sure to install the latest version of the Idris compiler. This package has 
 * [file](https://github.com/leon-vv/File) (wrapper around a single function)
 
 Install these packages manually (see their readme files). Then run:
-```idris -p effects -i ../Record -i ../FerryJS -i ../Html -i ../Sql -i ../Event -i ../Http -i ../File --codegen node -o todo.js ./Main.idr``` 
-
+```idris -p effects -p record_ -p ferryjs -p html -p sql -p event -p http -p file --codegen node -o todo.js ./Main.idr```
 The produced JavaScript program `todo.js` accepts the database name, user name and password name as command line arguments:
 ```node ./todo.js dbName username password```
 
