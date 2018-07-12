@@ -36,8 +36,13 @@ data Msg = NewRequest (Request, Response)
 State : Type
 State = (Callback Msg, DBConnection)
 
-connection : JS_IO DBConnection
-connection = newConnection {user="leonvv"} {database="leonvv"} {password="leonvv"}
+connection : JS_IO (Maybe DBConnection)
+connection = do
+  args <- getArgs
+  (case args of
+    -- Todo: better error handling
+    [_, _, db, name, pass] => Just <$> newConnection {user=name} {database=db} {password=pass}
+    _ => pure Nothing)
 
 -- Next state function
 
@@ -160,11 +165,15 @@ router = tryAll [
 computeState : ProgramMsg State Msg -> JS_IO (Maybe (State))
 
 computeState (ProgramStart cb) = do
-  conn <- connection
-  (let serv = httpServer 3001
-   in let ev = map NewRequest $ listen serv
-   in listen ev cb)
-  pure (Just (cb, conn))
+  maybeConn <- connection
+  (case maybeConn of
+    Nothing => 
+      printLn' "Please pass database name, username and password as command line arguments"
+          *> pure Nothing
+    Just conn => 
+      (let ev = map NewRequest $ Http.listen (httpServer 3001)
+       in listen ev cb)
+          *> pure (Just (cb, conn)))
 
 computeState (ProgramNext st (NewRequest (req, res))) =
   Just <$> 
