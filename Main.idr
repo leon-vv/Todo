@@ -168,11 +168,12 @@ computeState (ProgramStart cb) = do
   maybeConn <- connection
   (case maybeConn of
     Nothing => 
-      printLn' "Please pass database name, username and password as command line arguments"
+      putStrLn' "Please pass database name, username and password as command line arguments"
           *> pure Nothing
     Just conn => 
       (let ev = map NewRequest $ Http.listen (httpServer 3001)
        in listen ev cb)
+          *> putStrLn' "Listening on localhost:3001"
           *> pure (Just (cb, conn)))
 
 computeState (ProgramNext st (NewRequest (req, res))) =
