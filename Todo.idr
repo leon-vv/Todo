@@ -4,6 +4,7 @@ import Record
 import Sql
 
 import Effects
+import Data.List.Quantifiers
 
 %access public export
 

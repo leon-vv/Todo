@@ -5,6 +5,8 @@ import Html
 import Record
 import File
 
+import Effects
+
 %access public export
 
 notFound : Html
@@ -44,8 +46,8 @@ withinContent : List Html -> JS_IO String
 withinContent b = 
   (\style => "<!DOCTYPE html>" ++ show (
                 tagc "html" [
-                    tagc "head" [tagac "style" [("type", "text/CSS")] [text style]],
-                    tagc "body" [divId "wrapper" [divId "content" b]]]))
+                  tagc "head" [tagac "style" [("type", "text/CSS")] [text {escape=False} style]],
+                  tagc "body" [divId "wrapper" [divId "content" b]]]))
     <$> readFileSync "style.css"
 
 todoToHtml : Todo -> Html
