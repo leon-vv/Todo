@@ -19,8 +19,21 @@ Make sure to install the latest version of the Idris compiler. This package has 
 * [file](https://github.com/leon-vv/File) (wrapper around a single function)
 
 Install these packages manually (see their readme files). Then run:
-```idris --build todo.ipkg```
+```idris -p effects -i ../Record -i ../FerryJS -i ../Html -i ../Sql -i ../Event -i ../Http -i ../File --codegen node -o todo.js ./Main.idr``` 
 
+The produced JavaScript program `todo.js` accepts the database name, user name and password name as command line arguments:
+```node ./todo.js dbName username password```
+
+The database should contain a table named Todo:
+
+```SQL
+CREATE TABLE todo
+(
+  name character varying NOT NULL,
+  done boolean NOT NULL,
+  id serial PRIMARY KEY
+);
+```
 License
 ----------------------------
 Mozilla Public License, v. 2.0
