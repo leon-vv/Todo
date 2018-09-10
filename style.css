@@ -1,4 +1,6 @@
-
+a {
+	color:blue;
+}
 #wrapper {
   padding-top:30px;
   text-align:center;
@@ -36,7 +38,6 @@
   width:130px;
 }
 .todo > a {
-  color:blue;
   width:60px;
   margin-right:50px;
 }
