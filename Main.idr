@@ -63,12 +63,18 @@ returnTodos st@(cb, conn) (req, res) = do
   execute $ map (respondWithTodos res) (waitSelectResult result)
   pure st
 
+respondMessageCode : String -> Nat -> Route
+respondMessageCode msg code st (req, res) = do
+  setStatusCode res code
+  write res msg
+  pure st
+
 respondMessage : String -> Route
-respondMessage msg st (req, res) = write res msg *> pure st
+respondMessage msg = respondMessageCode msg 200
 
 -- Todo: set 404 header
 notFound : Route
-notFound = respondMessage "Not found"
+notFound = respondMessageCode "Not found" 404
 
 respondWithForm : Response -> List Todo -> JS_IO ()
 respondWithForm res [t] = do
